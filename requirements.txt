@@ -1,3 +1,6 @@
 streamlit
-pandas
 pydantic
+pandas
+pydeck
+plotly
+streamlit-autorefresh
