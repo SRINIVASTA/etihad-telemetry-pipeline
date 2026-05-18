@@ -3,7 +3,7 @@
 An enterprise-grade, real-time aviation monitoring dashboard and data quality pipeline built with Streamlit. The system ingests mock telemetry feeds, enforces rigid data-quality schemas using Pydantic data contracts, computes real-time geodesic vectors using the Haversine formula, and visualizes live regional airspace operations.
 
 🔗 **Live Production App:** [etihad-telemetry-pipeline.streamlit.app](https://etihad-telemetry-pipeline-hoxpbysyd8exh9xwrwjezj.streamlit.app/)  
-🧑‍💻 **Developer:** [srinivasta](https://github.com)
+🧑‍💻 **Developer:** [srinivasta](https://github.com/srinivasta)
 
 ---
 
