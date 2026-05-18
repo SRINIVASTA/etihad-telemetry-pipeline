@@ -22,7 +22,7 @@ class TelemetryRecord(BaseModel):
 
 # 3. HAVERSINE FORMULA DISTANCE CALCULATOR ENGINE
 def calculate_haversine_distance(lat1, lon1, lat2, lon2):
-    """Calculates the great-circle geodesic distance between two coordinates in Nautical Miles (NM)."""
+    """Calculates the great-circle geodesic distance between two global coordinates in Nautical Miles (NM)."""
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
     dlat = lat2 - lat1
     dlon = lon2 - lon1
@@ -37,7 +37,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom Style sheets to match an airport radar operations screen
 st.markdown("""
     <style>
     .main { background-color: #0b0f19; color: #f3f4f6; }
@@ -47,81 +46,103 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 5. GLOBAL AIRPORT RUNWAY COORDINATES REFERENCE MATRIX
+# 5. GLOBAL AIRPORT RUNWAY COORDINATES REFERENCE MATRIX (True Global Values)
 AIRPORT_COORDINATES = {
     "AUH": {"lat": 24.4539, "lon": 54.3773}, # Abu Dhabi Zayed International
-    "LHR": {"lat": 26.5000, "lon": 56.5000}, # Adjusted inside grid for tracking simulation
+    "DXB": {"lat": 25.2532, "lon": 55.3657}, # Dubai International
+    "DOH": {"lat": 25.2611, "lon": 51.5651}, # Doha Hamad International ◄── FIXED: Added missing tracking point
+    "LHR": {"lat": 51.4700, "lon": -0.4543}, # London Heathrow
+    "JFK": {"lat": 40.6413, "lon": -73.7781},# New York JFK
+    "BOM": {"lat": 19.0896, "lon": 72.8656}, # Mumbai Chhatrapati Shivaji
+    "CDG": {"lat": 49.0097, "lon": 2.5479},  # Paris Charles de Gaulle
+    "DEL": {"lat": 28.5562, "lon": 77.1000}  # Delhi Indira Gandhi
+}
+
+# Local Map Bounding Points to keep Streamlit map visualization stable
+LOCAL_RADAR_MAP = {
+    "AUH": {"lat": 24.4539, "lon": 54.3773},
+    "DXB": {"lat": 25.2532, "lon": 55.3657},
+    "DOH": {"lat": 25.1000, "lon": 51.5000},
+    "LHR": {"lat": 26.5000, "lon": 56.5000}, # Plotted inside bounds for interface display continuity
     "JFK": {"lat": 21.2000, "lon": 51.5000}, 
     "BOM": {"lat": 22.8000, "lon": 57.2000}, 
     "CDG": {"lat": 26.1000, "lon": 52.1000},  
-    "DXB": {"lat": 25.2532, "lon": 55.3657}, 
     "DEL": {"lat": 23.1000, "lon": 56.9000}  
 }
 
-# 6. STATEFUL DATA LAYER MANAGEMENT
+# 6. STATEFUL DATA LAYER MANAGEMENT (Using Path Completion Percentages)
 if "fleet_state" not in st.session_state:
     st.session_state.fleet_state = [
-        {"flight_callsign": "EY/ETD151", "origin_station": "AUH", "destination_station": "LHR", "latitude": 24.4539, "longitude": 54.3773, "speed_lat": 0.15, "speed_lon": 0.12, "altitude_feet": 32000, "status": "CRUISE"},
-        {"flight_callsign": "EY/ETD101", "origin_station": "AUH", "destination_station": "JFK", "latitude": 24.1200, "longitude": 53.9500, "speed_lat": -0.11, "speed_lon": -0.14, "altitude_feet": 30000, "status": "CRUISE"},
-        {"flight_callsign": "EK/UAE72",  "origin_station": "DXB", "destination_station": "BOM", "latitude": 25.2048, "longitude": 55.2708, "speed_lat": -0.14, "speed_lon": 0.11, "altitude_feet": 34000, "status": "CRUISE"},
-        {"flight_callsign": "QR/QTR319", "origin_station": "DXB", "destination_station": "CDG", "latitude": 24.8900, "longitude": 54.1200, "speed_lat": 0.09, "speed_lon": -0.15, "altitude_feet": 28000, "status": "CRUISE"},
-        {"flight_callsign": "AI/AIC465", "origin_station": "DEL", "destination_station": "AUH", "latitude": 23.5000, "longitude": 53.2000, "speed_lat": 0.08, "speed_lon": 0.09, "altitude_feet": 36000, "status": "CRUISE"},
-        {"flight_callsign": "MALFORMED_X", "origin_station": "UNKNOWN_HUB", "destination_station": "INVALID_STATION_CODE", "latitude": 5.0, "longitude": 12.0, "speed_lat": 0.0, "speed_lon": 0.0, "altitude_feet": -1500, "status": "CRUISE"}
+        {"flight_callsign": "EY/ETD151", "origin_station": "AUH", "destination_station": "LHR", "progress_pct": 0.0, "speed_pct": 0.04, "altitude_feet": 0, "status": "CLIMB"},
+        {"flight_callsign": "EY/ETD101", "origin_station": "AUH", "destination_station": "JFK", "progress_pct": 0.0, "speed_pct": 0.03, "altitude_feet": 0, "status": "CLIMB"},
+        {"flight_callsign": "EK/UAE72",  "origin_station": "DXB", "destination_station": "BOM", "progress_pct": 0.0, "speed_pct": 0.05, "altitude_feet": 0, "status": "CLIMB"},
+        {"flight_callsign": "QR/QTR319", "origin_station": "DOH", "destination_station": "CDG", "progress_pct": 0.0, "speed_pct": 0.03, "altitude_feet": 0, "status": "CLIMB"}, # ◄── FIXED origin code mismatch
+        {"flight_callsign": "AI/AIC465", "origin_station": "DEL", "destination_station": "AUH", "progress_pct": 0.0, "speed_pct": 0.04, "altitude_feet": 0, "status": "CLIMB"},
+        {"flight_callsign": "MALFORMED_X", "origin_station": "UNKNOWN_HUB", "destination_station": "INVALID", "progress_pct": 0.0, "speed_pct": 0.0, "altitude_feet": -500, "status": "CRUISE"}
     ]
     st.session_state.refresh_count = 0
     st.session_state.quarantine_count = 0
 
-# 7. DATAOPS INGESTION PROCESSING & DYNAMIC ALTITUDE ENGINE
+# 7. DATAOPS INGESTION PROCESSING & DYNAMIC PATH CALCULATOR
 st.session_state.refresh_count += 1
 clean_records = []
 
 for flight in st.session_state.fleet_state:
-    # Progress flight path location vectors
+    orig = flight["origin_station"]
+    dest = flight["destination_station"]
+    
+    # Skip calculations for dummy error testing items
+    if flight["flight_callsign"] == "MALFORMED_X":
+        try:
+            TelemetryRecord(**flight)
+        except ValidationError:
+            st.session_state.quarantine_count += 1
+        continue
+
+    # Update path progression vector (0.0 ➔ 1.0)
     if flight["status"] != "LANDED":
-        flight["latitude"] += flight["speed_lat"]
-        flight["longitude"] += flight["speed_lon"]
-    
-    dest_code = flight["destination_station"]
-    
-    # Calculate exact real-time distance remaining to destination airport
-    if dest_code in AIRPORT_COORDINATES:
-        dist_to_dest = calculate_haversine_distance(
-            flight["latitude"], flight["longitude"],
-            AIRPORT_COORDINATES[dest_code]["lat"], AIRPORT_COORDINATES[dest_code]["lon"]
-        )
-        orig_code = flight["origin_station"]
-        dist_from_orig = calculate_haversine_distance(
-            flight["latitude"], flight["longitude"],
-            AIRPORT_COORDINATES[orig_code]["lat"], AIRPORT_COORDINATES[orig_code]["lon"]
-        ) if orig_code in AIRPORT_COORDINATES else 100
-    else:
-        dist_to_dest = 500
-        dist_from_orig = 500
-
-    # 🛩️ AUTOMATED ALTITUDE VECTOR ENGINE (CRUISE ➔ DESCENT ➔ TOUCHDOWN)
-    if flight["flight_callsign"] != "MALFORMED_X":
-        if dist_to_dest <= 10:  # Touchdown zone
-            flight["altitude_feet"] = 0
+        flight["progress_pct"] += flight["speed_pct"]
+        if flight["progress_pct"] >= 1.0:
+            flight["progress_pct"] = 1.0
             flight["status"] = "LANDED"
-        elif dist_to_dest <= 80:  # Near destination: Execute descent slope
-            flight["status"] = "DESCENT"
-            # Scale down altitude linearly based on remaining proximity distance
-            flight["altitude_feet"] = max(1500, int((dist_to_dest / 80) * 15000))
-        elif dist_from_orig <= 40:  # Near departure: Simulate climb phase
-            flight["status"] = "CLIMB"
-            flight["altitude_feet"] = min(24000, int((dist_from_orig / 40) * 24000))
-        else:
-            flight["status"] = "CRUISE"
-            flight["altitude_feet"] += random.choice([-100, 0, 100]) # Normal cruise variance
 
-    # Map variables to boundary gates
-    if not (21.0 <= flight["latitude"] <= 27.0) or not (51.0 <= flight["longitude"] <= 58.0):
-        # Reset completed flight trajectories back to origin coordinates to maintain loop continuity
-        if dest_code in AIRPORT_COORDINATES:
-            flight["latitude"] = AIRPORT_COORDINATES[flight["origin_station"]]["lat"]
-            flight["longitude"] = AIRPORT_COORDINATES[flight["origin_station"]]["lon"]
-            flight["altitude_feet"] = 30000
+    if orig in AIRPORT_COORDINATES and dest in AIRPORT_COORDINATES:
+        # Calculate maximum full route baseline tracking vector distance
+        total_route_distance = calculate_haversine_distance(
+            AIRPORT_COORDINATES[orig]["lat"], AIRPORT_COORDINATES[orig]["lon"],
+            AIRPORT_COORDINATES[dest]["lat"], AIRPORT_COORDINATES[dest]["lon"]
+        )
+        
+        # Linearly calculate distances based on progress percentage metrics
+        dist_from_orig = int(total_route_distance * flight["progress_pct"])
+        dist_to_dest = total_route_distance - dist_from_orig
+        
+        # Compute smooth visual rendering coordinates on local radar map grid boundaries
+        start_map = LOCAL_RADAR_MAP[orig]
+        end_map = LOCAL_RADAR_MAP[dest]
+        flight["latitude"] = start_map["lat"] + (end_map["lat"] - start_map["lat"]) * flight["progress_pct"]
+        flight["longitude"] = start_map["lon"] + (end_map["lon"] - start_map["lon"]) * flight["progress_pct"]
+
+        # DYNAMIC ALTITUDE & CLIMB/DESCENT SLOPE ENGINE
+        if flight["status"] != "LANDED":
+            if flight["progress_pct"] <= 0.2:  # First 20% of route: Climb Phase
+                flight["status"] = "CLIMB"
+                flight["altitude_feet"] = int((flight["progress_pct"] / 0.2) * 32000)
+            elif flight["progress_pct"] >= 0.8:  # Last 20% of route: Automated Progressive Descent
+                flight["status"] = "DESCENT"
+                remaining_scale = (1.0 - flight["progress_pct"]) / 0.2
+                flight["altitude_feet"] = max(1200, int(remaining_scale * 32000))
+            else:  # Middle 60% of route: Cruise Phase
+                flight["status"] = "CRUISE"
+                flight["altitude_feet"] = 32000 + random.choice([-100, 0, 100])
+        else:
+            flight["altitude_feet"] = 0
+            
+        # Re-initialize flight loop trajectory if completed and landed
+        if flight["status"] == "LANDED" and random.random() < 0.3:
+            flight["progress_pct"] = 0.0
             flight["status"] = "CLIMB"
+            flight["altitude_feet"] = 0
 
     # SCHEMA VALIDATION GATE (Data Quality Layer)
     try:
@@ -131,16 +152,16 @@ for flight in st.session_state.fleet_state:
         record_dict["dist_to_destination_nm"] = dist_to_dest
         record_dict["flight_status"] = flight["status"]
         clean_records.append(record_dict)
-    except ValidationError as e:
+    except ValidationError:
         st.session_state.quarantine_count += 1
 
 df_clean_lakehouse = pd.DataFrame(clean_records)
 
-# 8. RENDER THE INTERACTIVE APPLICATION UI
+# 8. RENDER INTERACTIVE APPLICATION UI Layout
 col_title, col_time = st.columns(2)
 with col_title:
     st.markdown("<h2 style='color:#38bdf8;'>✈️ ETIHAD FLIGHT OPERATIONS CENTRE</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='color:#4ade80; font-size:13px; font-weight:bold; margin-top:-15px;'>● REAL-TIME DISPATCH TRK FEED ACTIVE</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#4ade80; font-size:13px; font-weight:bold; margin-top:-15px;'>● DYNAMIC GEODESIC POSITION TRACKING ACTIVE</p>", unsafe_allow_html=True)
 with col_time:
     st.markdown(f"<p style='text-align:right; color:#9ca3af; font-family:monospace; margin-bottom:0;'>RADAR SWEEPS: {st.session_state.refresh_count}</p>", unsafe_allow_html=True)
     st.markdown(f"<p style='text-align:right; color:#e5e7eb; font-family:monospace; margin-top:0;'>🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>", unsafe_allow_html=True)
